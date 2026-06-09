@@ -2,7 +2,6 @@
 #define WIFI_MANAGER_H
 
 #include <Arduino.h>
-#include <string>
 #include <WiFi.h>
 
 bool connect_wifi(const String &wifi_ssid, const String &wifi_passwd);

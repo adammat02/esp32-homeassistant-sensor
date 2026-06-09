@@ -6,27 +6,46 @@
 WiFiClient espClient;
 mqtt_manager mqttClient(espClient);
 
-String deviceName;
-String deviceId;
-String topic;
+device dev = {
+  .device_id = "esp32_01",
+  .name = "ESP32",
+  .model = "ESP32-WROOM",
+  .manufacturer = "Espressif"
+};
+
+sensor temp_sensor = {
+  .name = "Temperatura",
+  .unique_id = "esp32_01_temp",
+  .state_topic = "home/esp32_01/state",
+  .unit_of_measurement = "°C",
+  .device_class = "temperature",
+  .state_class = "measurement",
+  .dev = dev
+};
+
+sensor hum_sensor = {
+  .name = "Wilgotność",
+  .unique_id = "esp32_01_hum",
+  .state_topic = "home/esp32_01/state",
+  .unit_of_measurement = "%",
+  .device_class = "humidity",
+  .state_class = "measurement",
+  .dev = dev
+};
 
 void setup()
 {
   Serial.begin(115200);
   delay(1000);
 
-  deviceName = "ESP32";
-  deviceId = "esp32";
-  topic = "home/" + deviceId + "/state";
-
-  mqttClient.begin(deviceName, deviceId, topic);
+  mqttClient.begin(dev);
 
   connect_wifi(WIFI_SSID, WIFI_PASSWD);
-  mqttClient.connectMQTT();
+  mqttClient.connect_mqtt();
   delay(2000);
 
-  mqttClient.publishConfig("temperature", "{{ value_json.temperature }}", "°C", "temperature");
-  mqttClient.publishConfig("humidity", "{{ value_json.humidity }}", "%", "humidity");
+  mqttClient.publish_config(temp_sensor);
+  mqttClient.publish_config(hum_sensor);
 }
 
 void loop()
@@ -34,13 +53,13 @@ void loop()
   int temp = 0;
   while(true)
   {
-    if (!mqttClient.isConnected())
+    if (!mqttClient.is_connected())
     {
-      mqttClient.connectMQTT();
+      mqttClient.connect_mqtt();
     }
     mqttClient.loop();
 
-    mqttClient.publishData({{"temperature", temp}, {"humidity", 61.2}});
+    mqttClient.publish_data({{temp_sensor, temp}, {hum_sensor, 61.2}});
     temp = (temp + 5) % 25;
     delay(5000);
   }

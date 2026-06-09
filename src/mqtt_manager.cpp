@@ -3,22 +3,42 @@
 
 mqtt_manager::mqtt_manager(WiFiClient& espClient) : mqttClient(espClient) {}
 
-void mqtt_manager::begin(const String &device_name,const String& deviceID, const String& deviceTopic)
+JsonDocument mqtt_manager::struct_to_json(const sensor &sensor)
 {
-  deviceName = device_name;
-  mainTopic = deviceTopic;
-  deviceId = deviceID;
+  JsonDocument doc;
+  doc["name"]                = sensor.name;
+  doc["unique_id"]           = sensor.unique_id;
+  doc["state_topic"]         = sensor.state_topic;
+  doc["value_template"]      = "{{ value_json." + String(sensor.device_class) +  "}}";
+  doc["unit_of_measurement"] = sensor.unit_of_measurement;
+  doc["device_class"]        = sensor.device_class;
+  doc["state_class"]         = sensor.state_class;
+
+  JsonObject device = doc["device"].to<JsonObject>();
+  device["name"]         = sensor.dev.name;
+  device["model"]        = sensor.dev.model;
+  device["manufacturer"] = sensor.dev.manufacturer;
+
+  JsonArray identifiers = device["identifiers"].to<JsonArray>();
+  identifiers.add(sensor.dev.device_id);
+
+  return doc;
+}
+
+void mqtt_manager::begin(const device &device)
+{
+  device_ = device;
   mqttClient.setBufferSize(512);
 } 
 
-void mqtt_manager::connectMQTT()
+void mqtt_manager::connect_mqtt()
 {
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
 
   while (!mqttClient.connected())
   {
     Serial.print("Laczenie z MQTT...");
-    if (mqttClient.connect(deviceId.c_str(), MQTT_LOGIN, MQTT_PASSWD))
+    if (mqttClient.connect(device_.device_id.c_str(), MQTT_LOGIN, MQTT_PASSWD))
     {
       Serial.println("OK");
     }
@@ -32,53 +52,34 @@ void mqtt_manager::connectMQTT()
   }
 }
 
-void mqtt_manager::publishConfig(
-    const String &sensorType,
-    const String &valueTemplate,
-    const String &unitOfMeasurement,
-    const String &deviceClass)
+void mqtt_manager::publish_config(const sensor &sensor)
 {
-    JsonDocument doc;
-    doc["name"]                = deviceName + " " + sensorType;
-    doc["unique_id"]           = deviceId + "_" + sensorType;
-    doc["state_topic"]         = mainTopic;
-    doc["value_template"]      = valueTemplate;
-    doc["unit_of_measurement"] = unitOfMeasurement;
-    doc["device_class"]        = deviceClass;
-    doc["state_class"]         = "measurement";
+  JsonDocument doc = struct_to_json(sensor);
+  char payload[512];
+  serializeJson(doc, payload);
 
-    JsonObject device = doc["device"].to<JsonObject>();
-    device["name"]         = deviceName;
-    device["model"]        = "ESP32";
-    device["manufacturer"] = "Espressif";
+  String configTopic = "homeassistant/sensor/" + sensor.unique_id + "/config";
+  mqttClient.publish(configTopic.c_str(), payload, true);
 
-    JsonArray identifiers = device["identifiers"].to<JsonArray>();
-    identifiers.add(deviceId);
-
-    char payload[512];
-    serializeJson(doc, payload);
-
-    String configTopic = "homeassistant/sensor/" + deviceId + "/" + sensorType + "/config";
-    mqttClient.publish(configTopic.c_str(), payload, true);
-
-    Serial.print("Publikacja na topic: ");
-    Serial.println(configTopic);
-    Serial.println(payload);
+  Serial.print("Publikacja na topic: ");
+  Serial.println(configTopic);
+  Serial.println(payload);
 }
 
-void mqtt_manager::publishData(const std::vector<std::pair<String, float>> &measurements)
+void mqtt_manager::publish_data(const std::vector<std::pair<sensor, float>> &measurements)
 {
-    JsonDocument doc;
-    for (const auto &m : measurements) {
-        doc[m.first] = m.second;
-    }
+  JsonDocument doc;
+  for (const auto &m : measurements) {
+      doc[m.first.device_class] = m.second;
+  }
 
-    char payload[256];
-    serializeJson(doc, payload);
+  char payload[256];
+  serializeJson(doc, payload);
+  
+  String topic = measurements[0].first.state_topic;
+  mqttClient.publish(topic.c_str(), payload);
 
-    mqttClient.publish(mainTopic.c_str(), payload);
-
-    Serial.print("Publikacja na topic: ");
-    Serial.println(mainTopic);
-    Serial.println(payload);
+  Serial.print("Publikacja na topic: ");
+  Serial.println(topic);
+  Serial.println(payload);
 }
