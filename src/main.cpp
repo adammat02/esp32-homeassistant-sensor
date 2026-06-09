@@ -2,9 +2,15 @@
 #include "secrets.h"
 #include "wifi_manager.h"
 #include "mqtt_manager.h"
+#include <DHT.h>
+
+#define DHT11_PIN 5
+#define DHTTYPE DHT11
 
 WiFiClient espClient;
 mqtt_manager mqttClient(espClient);
+
+DHT dht(DHT11_PIN, DHTTYPE);
 
 device dev = {
   .device_id = "esp32_01",
@@ -33,34 +39,44 @@ sensor hum_sensor = {
   .dev = dev
 };
 
+RTC_DATA_ATTR int bootCount = 0;
+
 void setup()
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
   mqttClient.begin(dev);
 
   connect_wifi(WIFI_SSID, WIFI_PASSWD);
   mqttClient.connect_mqtt();
-  delay(2000);
+  dht.begin();
+  delay(500);
 
-  mqttClient.publish_config(temp_sensor);
-  mqttClient.publish_config(hum_sensor);
+  esp_sleep_enable_timer_wakeup(60000000);
+
+  if (bootCount == 0)
+  {
+    mqttClient.publish_config(temp_sensor);
+    mqttClient.publish_config(hum_sensor); 
+  }
+  bootCount++;
+
+  if (!mqttClient.is_connected())
+  {
+    mqttClient.connect_mqtt();
+  }
+  mqttClient.loop();
+
+  float hum = dht.readHumidity();
+  float temp = dht.readTemperature();
+
+  mqttClient.publish_data({{temp_sensor, temp}, {hum_sensor, hum}});
+
+  esp_deep_sleep_start();
 }
 
 void loop()
 {
-  int temp = 0;
-  while(true)
-  {
-    if (!mqttClient.is_connected())
-    {
-      mqttClient.connect_mqtt();
-    }
-    mqttClient.loop();
 
-    mqttClient.publish_data({{temp_sensor, temp}, {hum_sensor, 61.2}});
-    temp = (temp + 5) % 25;
-    delay(5000);
-  }
 }
