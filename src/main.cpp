@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "secrets.h"
 #include "wifi_manager.h"
 #include "mqtt_manager.h"
 
@@ -20,7 +21,7 @@ void setup()
 
   mqttClient.begin(deviceName, deviceId, topic);
 
-  connectWiFi();
+  connect_wifi(WIFI_SSID, WIFI_PASSWD);
   mqttClient.connectMQTT();
   delay(2000);
 

@@ -18,7 +18,7 @@ void mqtt_manager::connectMQTT()
   while (!mqttClient.connected())
   {
     Serial.print("Laczenie z MQTT...");
-    if (mqttClient.connect(deviceId.c_str(), MQTT_LOGIN, MQTT_PASSWORD))
+    if (mqttClient.connect(deviceId.c_str(), MQTT_LOGIN, MQTT_PASSWD))
     {
       Serial.println("OK");
     }
