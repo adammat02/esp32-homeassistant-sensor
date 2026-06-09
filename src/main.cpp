@@ -22,6 +22,7 @@ void setup()
 
   connectWiFi();
   mqttClient.connectMQTT();
+  delay(2000);
 
   mqttClient.publishConfig("temperature", "{{ value_json.temperature }}", "°C", "temperature");
   mqttClient.publishConfig("humidity", "{{ value_json.humidity }}", "%", "humidity");
@@ -29,12 +30,17 @@ void setup()
 
 void loop()
 {
-  if (!mqttClient.isConnected())
+  int temp = 0;
+  while(true)
   {
-    mqttClient.connectMQTT();
-  }
-  mqttClient.loop();
+    if (!mqttClient.isConnected())
+    {
+      mqttClient.connectMQTT();
+    }
+    mqttClient.loop();
 
-  mqttClient.publishData({{"temperature", 23.4}, {"humidity", 61.2}});
-  delay(5000);
+    mqttClient.publishData({{"temperature", temp}, {"humidity", 61.2}});
+    temp = (temp + 5) % 25;
+    delay(5000);
+  }
 }

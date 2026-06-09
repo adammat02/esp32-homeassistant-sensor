@@ -8,6 +8,7 @@ void mqtt_manager::begin(const String &device_name,const String& deviceID, const
   deviceName = device_name;
   mainTopic = deviceTopic;
   deviceId = deviceID;
+  mqttClient.setBufferSize(512);
 } 
 
 void mqtt_manager::connectMQTT()
@@ -17,7 +18,7 @@ void mqtt_manager::connectMQTT()
   while (!mqttClient.connected())
   {
     Serial.print("Laczenie z MQTT...");
-    if (mqttClient.connect(deviceId.c_str()))
+    if (mqttClient.connect(deviceId.c_str(), MQTT_LOGIN, MQTT_PASSWORD))
     {
       Serial.println("OK");
     }
